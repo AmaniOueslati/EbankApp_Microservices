@@ -1,6 +1,6 @@
 services:
   discovery-service:
-    build: ./discovery-service
+    build: ../../../../../discovery-service
     container_name: amani-discovery-service
     ports:
       - '8761:8761'
@@ -12,7 +12,7 @@ services:
       retries: 4
 
   config-service:
-    build: ./config-service
+    build: ../../../../../config-service
     container_name: amani-config-service
     ports:
       - '9999:9999'
@@ -30,7 +30,7 @@ services:
         condition: service_healthy
 
   customer-service:
-    build: ./customer-service
+    build: ../../../../../customer-service
     container_name: amani-customer-service
     ports:
       - '8081:8081'
@@ -49,7 +49,7 @@ services:
         condition: service_healthy
 
   account-service:
-    build: ./account-service
+    build: ../../../../../account-service
     container_name: amani-account-service
     ports:
       - '8082:8082'
@@ -63,7 +63,7 @@ services:
         condition: service_healthy
 
   gateway-service:
-    build: ./gateway-service
+    build: ../../../../../gateway-service
     container_name: amani-gateway-service
     ports:
       - '8888:8888'
@@ -77,7 +77,7 @@ services:
         condition: service_healthy
 
   front-send-angular:
-    build: ./angular-frontend
+    build: ../../../../../angular-frontend
     container_name: front-end
     ports:
       - '82:80'
