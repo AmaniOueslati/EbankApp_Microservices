@@ -1,0 +1,44 @@
+# Specifies the API version and kind of object you're creating
+apiVersion: apps/v1            # API version for Deployment objects
+kind: Deployment               # Specifies that this is a Deployment
+
+# Metadata about the Deployment
+metadata:
+  name: customer-service-app    # Name of the Deployment
+  labels:                      # Labels to categorize the object
+    app: customer-service-app   # Label to identify the Deployment
+
+# Specification of the Deployment's behavior
+spec:
+  replicas: 1                  # Number of pod replicas to run
+  selector:                    # Criteria to select the pods that belong to this Deployment
+    matchLabels:
+      app: customer-service-app # Pods with this label will be managed by this Deployment
+  template:                    # Template to describe the pods created by the Deployment
+    metadata:
+      labels:
+        app: customer-service-app # Label assigned to the pods created by this Deployment
+    spec:
+      containers:              # List of containers within the pod
+      - name: amani-customer-service  # Name of the container
+        image: ebank_app-customer-service # Docker image for the container
+        ports:
+        - containerPort: 8081  # Port exposed by the container
+
+---
+# Specifies the API version and kind of object you're creating
+apiVersion: v1                 # API version for Service objects
+kind: Service                  # Specifies that this is a Service
+
+# Metadata about the Service
+metadata:
+  name: customer-service-svc    # Name of the Service
+
+# Specification of the Service's behavior
+spec:
+  type: ClusterIP              # Service type; ClusterIP exposes the service on a cluster-internal IP
+  ports:
+  - port: 81                  # Port that the Service will expose
+    targetPort: 8081      # Port on the container that the Service will forward traffic to
+  selector:
+    app: customer-service-app   # The Service will forward traffic to the pods with this label

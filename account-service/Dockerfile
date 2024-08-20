@@ -2,6 +2,8 @@
 # Oracle JDK n'a pas une version alpine disponible.
 FROM openjdk:17-oracle
 
+#adoptopenjdk/openjdk11:alpine-jre
+
 # Déclare un point de montage de volume pour le répertoire /tmp.
 # Cela permet de partager ce répertoire entre le conteneur et l'hôte.
 VOLUME /tmp

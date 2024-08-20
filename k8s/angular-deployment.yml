@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: front-end
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: front-end
+  template:
+    metadata:
+      labels:
+        app: front-end
+    spec:
+      containers:
+        - name: front-end
+          image: angular-frontend:latest
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: front-end-service
+  labels:
+   name: front-end
+spec:
+  ports:
+    - nodePort: 30170 #make the service avaible to network requests from external client
+    - protocol: TCP
+      port: 82 #the port that i maooed the container on
+      targetPort: 80 #port cintainer that is listening on
+  selector :
+   app: front-end
+  type : NodePort
+
+  #there is three types , clusterIp: no external access , NodePort: expose service to external access , get external traffic directly to ur service(any traffic sent to 3 170 is sent to the service ? ACCESS SERVICE TO ALL NODE ) , loadbalancer : is expose service into the inetrenet
