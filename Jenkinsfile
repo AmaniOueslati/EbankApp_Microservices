@@ -11,7 +11,7 @@ pipeline {
     stages {
         stage('Git Checkout') {
             steps {
-                git 'https://github.com/AmaniOueslati/test1.git'
+                git 'https://github.com/AmaniOueslati/EbankApp.git'
             }
         }
         stage('Compile') {
