@@ -66,7 +66,7 @@ pipeline {
         }
         stage('Trigger-cd-pipeline') {
             steps {
-                build job: "CD_Pipeline1", wait: true
+                build job: "CD_Pipeline1"
             }
         }
     }
