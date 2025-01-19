@@ -1,0 +1,164 @@
+stages:
+  - security
+  - build
+  - securityImageScan
+  - build_regi
+  - push
+  - deploy
+
+
+variables:
+  IMAGE_NAME: $CI_REGISTRY_IMAGE/client/angular
+  CHECKSUM_FILE: .last_build_checksum
+  VERSION_FILE: .last_version
+  KUBE_CONTEXT: dotcom/k8s-connection
+
+
+trivy-fs-job:
+  stage: security
+  script:
+    - trivy fs --format table -o fs.html . #fs=>file-system
+  tags:
+    - security
+
+
+sonarqube-check:
+  stage: security
+  image:
+    name: sonarsource/sonar-scanner-cli:latest
+  variables:
+    SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"  # Defines the location of the analysis task cache
+    GIT_DEPTH: "0"  # Tells git to fetch all the branches of the project, required by the analysis task ;
+  cache:
+    key: "${CI_JOB_NAME}"
+    paths:
+      - .sonar/cache
+  script:
+    - sonar-scanner
+  allow_failure: true
+  only:
+    - master
+  tags:
+    - dockerRunner
+
+
+  # This ensures the job runs only on the master branch
+
+
+build_image:
+  image: docker
+  stage: build
+  services:
+    - docker:dind
+  before_script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+  script:
+    # Compute the checksum of the codebase
+    - CODE_CHECKSUM=$(find . -type f -exec md5sum {} + | md5sum | cut -d ' ' -f 1)
+
+
+    # Check if checksum file exists and read that old checksum
+    - if [ -f $CHECKSUM_FILE ]; then
+        OLD_CHECKSUM=$(cat $CHECKSUM_FILE);
+      else
+        OLD_CHECKSUM="";
+      fi
+
+
+    # Determine if the checksum has changed
+    - |
+      if [ "$CODE_CHECKSUM" != "$OLD_CHECKSUM" ]; then
+        # Check if version file exists and read the last version
+        if [ -f $VERSION_FILE ]; then
+          LAST_VERSION=$(cat $VERSION_FILE);
+          # Increment the version number
+          NEW_VERSION="v$((${LAST_VERSION:1} + 1))";
+        else
+          # Start with v1 if no version file exists
+          NEW_VERSION="v1";
+        fi
+        # Update the checksum and version files
+        echo $CODE_CHECKSUM > $CHECKSUM_FILE;
+        echo $NEW_VERSION > $VERSION_FILE;
+
+
+        # Build the new image
+        docker build -t $IMAGE_NAME:$NEW_VERSION -f client/Dockerfile client/ &&
+        echo $NEW_VERSION > .build_version;  # Save the version for the next stage
+        echo "Image built with tag $NEW_VERSION";
+      else
+        echo "Code hasn't changed; skipping build.";
+      fi
+  artifacts:
+    paths:
+      - .build_version  # Pass the version to the next stage
+    when: always
+  tags:
+    - security
+  only:
+    - master
+
+
+trivy-image-scan:
+  stage: securityImageScan
+  script:
+    - docker images  # List all Docker images on the VM
+    - |
+      # Loop through each image and scan it
+      docker images --format "{{.Repository}}:{{.Tag}}" | while read -r image; do
+        if [ "$image" != "<none>:<none>" ]; then
+          echo "Scanning $image"
+          trivy image --format table -o "scan_results_${image//[:\/]/_}.html" $image || echo "Failed to scan $image"
+        fi
+      done
+  tags:
+    - security
+  only:
+    - master
+
+
+push_image:
+  image: docker
+  stage: push
+  services:
+    - docker:dind
+  before_script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+  script:
+    - if [ -f .build_version ]; then
+        NEW_VERSION=$(cat .build_version);
+        docker push $IMAGE_NAME:$NEW_VERSION &&
+        echo "Image pushed with tag $NEW_VERSION";
+      else
+        echo "No new image to push.";
+      fi
+    - echo $CI_REGISTRY
+  tags:
+    - security
+  only:
+    - master
+  dependencies:
+    - build_image
+
+
+deploy_project:
+  stage: deploy
+  variables:
+    KUBERNETES_MASTER: https://10.10.49.183
+#    KUBE_CONTEXT: dotcom/k8s-connection
+  image:
+    name: bitnami/kubectl:latest
+    entrypoint: ['']
+  script:
+#    - kubectl config use-context $KUBE_CONTEXT
+    - kubectl get pods
+    - echo "Deployment angularApp to k8s"
+    - ls $CI_PROJECT_DIR/k8s-pipeline
+    - kubectl apply -f $CI_PROJECT_DIR/k8s-pipeline/.
+    - kubectl get pods
+    - kubectl get svc
+    - kubectl get all
+  tags:
+    - k8s
+  only:
+    - master
